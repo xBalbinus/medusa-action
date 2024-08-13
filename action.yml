@@ -1,0 +1,121 @@
+name: "medusa-action"
+
+description: "Run Medusa, the coverage-guided smart contract fuzzer"
+
+branding:
+  icon: 'shield'  
+  color: 'red'
+
+inputs:
+  files:
+    description: "Solidity files to analyze"
+    required: true
+  contract:
+    description: "Contract to analyze"
+    required: false
+  config:
+    description: "Config file (CLI arguments override config options)"
+    required: false
+  format:
+    description: "Output format: json, text, none. Disables interactive UI"
+    required: false
+  corpus-dir:
+    description: "Directory to store corpus and coverage data"
+    required: false
+  test-mode:
+    description: "Type of tests to be performed"
+    required: false
+  multi-abi:
+    description: "Use multi-abi mode of testing"
+    required: false
+  test-limit:
+    description: "Number of sequences of transactions to generate during testing"
+    required: false
+  shrink-limit:
+    description: "Number of tries to attempt to shrink a failing sequence of transactions"
+    required: false
+  seq-len:
+    description: "Number of transactions to generate during testing"
+    required: false
+  contract-addr:
+    description: "Address to deploy the contract to test"
+    required: false
+  deployer:
+    description: "Address of the deployer of the contract to test"
+    required: false
+  sender:
+    description: "Addresses to use for the transactions sent during testing"
+    required: false
+  seed:
+    description: "Run with a specific seed"
+    required: false
+  crytic-args:
+    description: "Additional arguments to use in crytic-compile for the compilation of the contract to test"
+    required: false
+  solc-args:
+    description: "Additional arguments to use in solc for the compilation of the contract to test"
+    required: false
+  solc-version:
+    description: "Version of the Solidity compiler to use"
+    required: false
+  output-file:
+    description: "Capture medusa's output into this file. The path must be relative to the repository root."
+    required: false
+  negate-exit-status:
+    description: "Apply logical NOT to medusa-test's exit status (for testing the action)"
+    required: false
+  medusa-version:
+    description: "Version of the Medusa Docker image to use"
+    required: false
+    default: latest
+  medusa-workdir:
+    description: "Path to run medusa-test from. Note that `files` and `config` are relative to this path"
+    required: false
+  internal-github-workspace:
+    # Do not set manually. This is a hacky way to pass the host workspace to inside the action
+    # This is used to improve compatibility when using ignore-compile.
+    # GitHub rewrites the argument if it is passed directly, to we use toJSON to "transform"
+    # it and avoid the remapping done by GitHub Actions.
+    default: ${{ toJSON(github.workspace) }}
+
+outputs:
+  output-file:
+    description: "If produced, the file containing medusa-test's output, relative to the repository root."
+    value: ${{ steps.medusa.outputs.output-file }}
+
+runs:
+  using: "composite"
+  steps:
+    - run: |
+        # medusa-action Docker container build
+        docker build -t medusa-action-image:$MEDUSA_TAG --build-arg MEDUSA_TAG ${{ github.action_path }}
+      shell: bash
+      env:
+        MEDUSA_TAG: ${{ inputs.medusa-version }}
+    - id: medusa
+      run: |
+        # medusa campaign
+        ${{ github.action_path }}/launch.sh medusa-action-image:${{ inputs.medusa-version }}
+      shell: bash
+      env:
+        INPUT_FILES: ${{ inputs.files }}
+        INPUT_CONTRACT: ${{ inputs.contract }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_FORMAT: ${{ inputs.format }}
+        INPUT_CORPUS-DIR: ${{ inputs.corpus-dir }}
+        INPUT_TEST-MODE: ${{ inputs.test-mode }}
+        INPUT_MULTI-ABI: ${{ inputs.multi-abi }}
+        INPUT_TEST-LIMIT: ${{ inputs.test-limit }}
+        INPUT_SHRINK-LIMIT: ${{ inputs.shrink-limit }}
+        INPUT_SEQ-LEN: ${{ inputs.seq-len }}
+        INPUT_CONTRACT-ADDR: ${{ inputs.contract-addr }}
+        INPUT_DEPLOYER: ${{ inputs.deployer }}
+        INPUT_SENDER: ${{ inputs.sender }}
+        INPUT_SEED: ${{ inputs.seed }}
+        INPUT_CRYTIC-ARGS: ${{ inputs.crytic-args }}
+        INPUT_SOLC-ARGS: ${{ inputs.solc-args }}
+        INPUT_SOLC-VERSION: ${{ inputs.solc-version }}
+        INPUT_OUTPUT-FILE: ${{ inputs.output-file }}
+        INPUT_NEGATE-EXIT-STATUS: ${{ inputs.negate-exit-status }}
+        INPUT_MEDUSA-WORKDIR: ${{ inputs.medusa-workdir }}
+        INPUT_INTERNAL-GITHUB-WORKSPACE: ${{ inputs.internal-github-workspace }}
